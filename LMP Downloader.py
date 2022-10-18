@@ -35,6 +35,7 @@ def download_LMP(name, df):
                              "GRP_TYPE",
                              "POS"])
                 lmp = node_df[node_df["LMP_TYPE"] == "LMP"]
+                lmp = lmp.drop(columns=["LMP_TYPE"])
                 lmp.to_csv(csv_path, index=False)
                 df = pd.concat([df, lmp])
                 time.sleep(TIMEOUT)
