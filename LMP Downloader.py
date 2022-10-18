@@ -21,31 +21,32 @@ def download_LMP(name, df):
     start, end = datetime(2022, 1, 1), datetime(2022, 1, 30)
     while start < datetime(2022, 9, 1):
         try:
-            print(name)
+            print("{} {}".format(name, start))
             node = Node(name)
             # create dataframe with LMPS from arbitrary period (30 day maximum)
             node_lmps = node.get_lmps(start, end)
-            df = pd.concat([df, node_lmps])
-            node_df = df.drop(
+            node_df = node_lmps.drop(
                 columns=["OPR_INTERVAL", "NODE_ID_XML", "NODE", "MARKET_RUN_ID", "XML_DATA_ITEM", "PNODE_RESMRID",
                          "GRP_TYPE",
-                         "POS", "MW"])
+                         "POS"])
             lmp = node_df[node_df["LMP_TYPE"] == "LMP"]
-            lmp.to_csv("{}{}-{}-{}.csv".format(PATH, name, start.month, start.year), index=False)
+            lmp.to_csv("{}{}-{}-{}-{}.csv".format(PATH, name, start.month, start.day, start.year), index=False)
+            df = pd.concat([df, lmp])
             time.sleep(TIMEOUT)
+            start += timedelta(days=30)
+            end += timedelta(days=30)
         except Exception as e:
-            print("Exception:\n {}".format(e))
-            time.sleep(TIMEOUT)
-            return df
-        start += timedelta(days=30)
-        end += timedelta(days=30)
+            print("Exception:\n{}".format(e))
+            if str(e) == "No data available for this query.":
+                return df
+            time.sleep(TIMEOUT + 5)
     return df
 
 
 if __name__ == "__main__":
     node_df = readPickle("node_df.pkl")
     # California Nodes 2018.csv
-    with open("California Nodes 2018.csv", 'r') as file:
+    with open("cont.csv", 'r') as file:
         reader = csv.reader(file)
         temp = False
         for row in reader:
