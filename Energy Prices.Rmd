@@ -1,0 +1,63 @@
+---
+title: "Energy Prices"
+author: "Anil Maharajh"
+date: '2022-09-23'
+output: html_document
+---
+
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(readxl)
+library(readr)
+library(tidyverse)
+
+prices <- read_csv("September 2022 LMP Nodes.csv")
+nodes <- read_csv("California Nodes 2018.csv")
+```
+
+```{r}
+avg_prices <- prices  %>%
+  group_by(NODE_ID, LMP_TYPE="LMP") %>%
+  summarise_at(vars(MW), list(name = mean))
+
+joined = merge(avg_prices, nodes, by="NODE_ID")
+
+lmp <- prices  %>%
+  group_by(NODE_ID, LMP_TYPE="LMP")
+```
+
+```{r}
+write.csv(sept_measures ,"September 2022 Node Prices.csv", row.names = FALSE)
+```
+
+```{r}
+
+sept_mean <- prices %>%
+  mutate(month = format(OPR_DT, "%m"), year = format(OPR_DT, "%Y")) %>%
+  group_by(NODE_ID, month, year) %>%
+  summarise_at(vars(MW), list(Mean_MW = mean))
+
+sept_med <- prices %>%
+  mutate(month = format(OPR_DT, "%m"), year = format(OPR_DT, "%Y")) %>%
+  group_by(NODE_ID, month, year) %>%
+  summarise_at(vars(MW), list(Median_MW = median))
+
+sept_sd <- prices %>%
+  mutate(month = format(OPR_DT, "%m"), year = format(OPR_DT, "%Y")) %>%
+  group_by(NODE_ID, month, year) %>%
+  summarise_at(vars(MW), list(Standard_Deviation_MW = sd))
+               
+            
+
+sept_measures = merge(sept_mean, sept_med, by="NODE_ID")
+sept_measures = merge(sept_measures, sept_sd, by="NODE_ID")
+
+```
+
