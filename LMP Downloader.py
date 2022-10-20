@@ -62,7 +62,7 @@ def download_LMP(name, df):
 if __name__ == "__main__":
     node_df = pd.DataFrame()
     # California Nodes 2018.csv
-    with open("cont.csv", 'r') as file:
+    with open("California Nodes 2018.csv", 'r') as file:
         reader = csv.reader(file)
         temp = False
         for row in reader:
