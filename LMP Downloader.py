@@ -11,12 +11,22 @@ TIMEOUT = 6
 
 
 def download_LMP(name, df):
-    start, end = datetime(2022, 1, 1), datetime(2022, 1, 30)
+    start, end, final_date = datetime(2019, 1, 1), datetime(2019, 1, 31), datetime(2020, 1, 1)
+
+    # Check to see if a folder is already created for the node
+    folder_path = "{}{}/".format(PATH, name)
+    if not os.path.exists(folder_path):
+        print("Create folder for {}".format(name))
+        os.mkdir(folder_path)
+
     i = TIMEOUT
-    while start < datetime(2022, 9, 1):
+    while start < final_date:
+        # If the end of the interval exceeds the end, final date, make the end the same
+        if end > final_date:
+            end = final_date
         try:
             print("{} {}".format(name, start))
-            csv_path = "{}{}-{}-{}-{}.csv".format(PATH, name, start.month, start.day, start.year)
+            csv_path = "{}{}-{}-{}-{}.csv".format(folder_path, name, start.month, start.day, start.year)
             # If a file is already created go onto the next month
             if not os.path.exists(csv_path):
                 node = Node(name)
@@ -28,10 +38,9 @@ def download_LMP(name, df):
                              "GRP_TYPE",
                              "POS"])
                 # only get data for lmp types of LMP
-                lmp = node_df[node_df["LMP_TYPE"] == "LMP"]
-                lmp = lmp.drop(columns=["LMP_TYPE"])
-                lmp.to_csv(csv_path, index=False)
-                df = pd.concat([df, lmp])
+                node_df.to_csv(csv_path, index=False)
+                node_df = node_df[node_df["LMP_TYPE"] == "LMP"]
+                df = pd.concat([df, node_df])
                 time.sleep(TIMEOUT)
                 # reset i to the original timeout
                 i = TIMEOUT
@@ -43,17 +52,17 @@ def download_LMP(name, df):
             print("Exception:\n{}".format(e))
             if str(e) == "No data available for this query.":
                 # Create an empty csv file, so we dont check if the file exists
-                f = open("{}{}-{}-{}-{}.csv".format(PATH, name, start.month, start.day, start.year), "w")
+                f = open("{}{}-{}-{}-{}.csv".format(folder_path, name, start.month, start.day, start.year), "w")
                 f.write("File does not exist")
                 f.close()
-                print("Wrote empty file: {}{}-{}-{}-{}.csv".format(PATH, name, start.month, start.day, start.year))
+                print("Wrote empty file: {}{}-{}-{}-{}.csv".format(folder_path, name, start.month, start.day, start.year))
                 start += timedelta(days=30)
                 end += timedelta(days=30)
                 time.sleep(TIMEOUT)
             else:
                 time.sleep(i)
-                # cap out the the wait period to 30 seconds
-                if i < 31:
+                # cap out the wait period to 30 seconds
+                if i < 10:
                     i += 1
                 print(i)
     return df
@@ -62,7 +71,7 @@ def download_LMP(name, df):
 if __name__ == "__main__":
     node_df = pd.DataFrame()
     # California Nodes 2018.csv
-    with open("cont.csv", 'r') as file:
+    with open("California Nodes 2018.csv", 'r') as file:
         reader = csv.reader(file)
         temp = False
         for row in reader:
@@ -70,10 +79,5 @@ if __name__ == "__main__":
                 node_df = download_LMP(row[2], node_df)
             else:
                 temp = True
-
-    node_df = node_df.drop(
-        columns=["OPR_INTERVAL", "NODE_ID_XML", "NODE", "MARKET_RUN_ID", "XML_DATA_ITEM", "PNODE_RESMRID", "GRP_TYPE",
-                 "POS"])
-    lmp = node_df[node_df["LMP_TYPE"] == "LMP"]
-    lmp.to_csv("JAN 2022 Aug 2022 Raw_node.csv", index=False)
-    file = open(PATH + "Node Prices.csv", "w+", newline="")
+    # write all the data into one big csv
+    node_df.to_csv("2021 Raw_node.csv", index=False)
