@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
 import os
+import pytz
 from datetime import date
 
-source = 'C:/Users/DarkS/Documents/University/Year 4/GGR442/CAISO-LMP-Generator/CSV'
+source = os.getcwd() + "/CSV"
 subdir = os.listdir(source)
 
 node_mean = pd.DataFrame()
@@ -21,6 +22,8 @@ node_on = pd.DataFrame()
 #      date(2022, 7, 1), date(2022, 9, 5), date(2022, 11, 11), date(2022, 11, 24), date(2022, 11, 24),
 #      date(2022, 12, 25), date(2022, 12, 26)])
 month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+pst = pytz.timezone("US/Pacific")
+
 
 def read_sub_dir(path):
     df = pd.DataFrame()
@@ -52,17 +55,20 @@ def clean_data(df):
         df['weekday'] = pd.DatetimeIndex(df['OPR_DT']).dayofweek
         df['peak'] = pd.DatetimeIndex(df['OPR_DT']).hour
         # convert GMT to PST
-        df['hour'] = pd.DatetimeIndex(df['INTERVALSTARTTIME_GMT']).hour - 8
+        df['hour'] = pd.DatetimeIndex(df['INTERVALSTARTTIME_GMT'], tz=pst).hour
 
         week_conditions = [(df['weekday'] == 5) | (df['weekday'] == 6)]
-        # 21
-        off_peak = [(df['hour'] == 15) | (df['hour'] == 16) | (df['hour'] == 17) | (df['hour'] == 18)
-                    | (df['hour'] == 19) | (df['hour'] == 20) | (df['hour'] == 21) | (df['hour'] == 22)
-                    | (df['hour'] == 23)]
-        mid_peak = [(df['hour'] == 24) | (df['hour'] == 1) | (df['hour'] == 2) | (df['hour'] == 3)
-                    | (df['hour'] == 4) | (df['hour'] == 5) | (df['hour'] == 6) | (df['hour'] == 7)]
-        on_peak = [(df['hour'] == 8) | (df['hour'] == 9) | (df['hour'] == 10) | (df['hour'] == 11)
-                   | (df['hour'] == 12) | (df['hour'] == 13) | (df['hour'] == 14)]
+        # 5am - 9am
+        mid_peak = [(df['hour'] == 5) | (df['hour'] == 6) | (df['hour'] == 7) | (df['hour'] == 8)
+                    | (df['hour'] == 9)]
+        # 5pm - 9pm
+        on_peak = [(df['hour'] == 17) | (df['hour'] == 18) | (df['hour'] == 19) | (df['hour'] == 20)
+                   | (df['hour'] == 21)]
+        # Otherwise
+        off_peak = [(df['hour'] == 10) | (df['hour'] == 11) | (df['hour'] == 12) | (df['hour'] == 13)
+                    | (df['hour'] == 14) | (df['hour'] == 15) | (df['hour'] == 16) | (df['hour'] == 22)
+                    | (df['hour'] == 23) | (df['hour'] == 0) | (df['hour'] == 1) | (df['hour'] == 2) |
+                    (df['hour'] == 3) | (df['hour'] == 4)]
         peak_time = off_peak + mid_peak + on_peak
 
         df["peak"] = np.select(peak_time, ['Off Peak', 'Mid Peak', 'On Peak'])
