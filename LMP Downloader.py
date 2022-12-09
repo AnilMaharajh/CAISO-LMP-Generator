@@ -11,7 +11,7 @@ TIMEOUT = 6
 
 
 def download_LMP(name, df):
-    start, end, final_date = datetime(2019, 1, 1), datetime(2019, 1, 31), datetime(2020, 1, 1)
+    start, end, final_date = datetime(2019, 6, 30), datetime(2019, 7, 30), datetime(2020, 1, 1)
 
     # Check to see if a folder is already created for the node
     folder_path = "{}{}/".format(PATH, name)
@@ -19,7 +19,6 @@ def download_LMP(name, df):
         print("Create folder for {}".format(name))
         os.mkdir(folder_path)
 
-    i = TIMEOUT
     while start < final_date:
         # If the end of the interval exceeds the end, final date, make the end the same
         if end > final_date:
@@ -32,7 +31,7 @@ def download_LMP(name, df):
                 node = Node(name)
                 # create dataframe with LMPS from arbitrary period (30 day maximum)
                 node_lmps = node.get_lmps(start, end)
-                # drop columns that are needed for analysis
+                # drop columns that are not needed for analysis
                 node_df = node_lmps.drop(
                     columns=["OPR_INTERVAL", "NODE_ID_XML", "NODE", "MARKET_RUN_ID", "XML_DATA_ITEM", "PNODE_RESMRID",
                              "GRP_TYPE",
@@ -43,7 +42,6 @@ def download_LMP(name, df):
                 df = pd.concat([df, node_df])
                 time.sleep(TIMEOUT)
                 # reset i to the original timeout
-                i = TIMEOUT
             else:
                 print("File is already created")
             start += timedelta(days=30)
@@ -51,7 +49,7 @@ def download_LMP(name, df):
         except Exception as e:
             print("Exception:\n{}".format(e))
             if str(e) == "No data available for this query.":
-                # Create an empty csv file, so we dont check if the file exists
+                # Create an empty csv file, so we do not check for it again
                 f = open("{}{}-{}-{}-{}.csv".format(folder_path, name, start.month, start.day, start.year), "w")
                 f.write("File does not exist")
                 f.close()
@@ -60,11 +58,7 @@ def download_LMP(name, df):
                 end += timedelta(days=30)
                 time.sleep(TIMEOUT)
             else:
-                time.sleep(i)
-                # cap out the wait period to 30 seconds
-                if i < 10:
-                    i += 1
-                print(i)
+                time.sleep(TIMEOUT)
     return df
 
 

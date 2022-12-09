@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 import os
 import pytz
-from datetime import date
+import matplotlib.pyplot as plt
 
-source = os.getcwd() + "/CSV"
+source = "CSV/"
 subdir = os.listdir(source)
 
 node_mean = pd.DataFrame()
@@ -21,11 +21,16 @@ node_on = pd.DataFrame()
 #     [date(2022, 1, 1), date(2022, 1, 17), date(2022, 2, 21), date(2022, 3, 31), date(2022, 5, 30),
 #      date(2022, 7, 1), date(2022, 9, 5), date(2022, 11, 11), date(2022, 11, 24), date(2022, 11, 24),
 #      date(2022, 12, 25), date(2022, 12, 26)])
-month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 pst = pytz.timezone("US/Pacific")
 
 
-def read_sub_dir(path):
+def read_sub_dir(path, node_time_mean):
+    """
+    :param path: The path to the Node folder within CSV/
+    :param node_time_mean: df containing the time data of each months mean
+    :return: processed node_time_mean df from clean_data
+    """
     df = pd.DataFrame()
     files = os.listdir(path)
     for f in files:
@@ -38,20 +43,40 @@ def read_sub_dir(path):
             if "NODE_ID" in t.columns:
                 if "LMP_TYPE" in t.columns:
                     t = t[t["LMP_TYPE"] == "LMP"]
-                    # print(t)
-                    # print(df)
                 df = pd.concat([df, t])
         except Exception as e:
             print(e)
             # skip the empty file
-    clean_data(df)
+    df.drop_duplicates()
+    return clean_data(df, node_time_mean)
 
 
-def clean_data(df):
+def add_columns():
+    """
+    Adds the month and year column names to each dataframe
+    """
+    for year in range(2019, 2023):
+        for month in months:
+            col_name = "{}_{}".format(month, year)
+
+            node_mean[col_name] = None
+            node_med[col_name] = None
+            node_sd[col_name] = None
+            node_weekday[col_name] = None
+            node_weekend[col_name] = None
+            node_mid[col_name] = None
+            node_off[col_name] = None
+            node_on[col_name] = None
+            node_sd[col_name] = None
+    print(node_mean)
+
+
+def clean_data(df, node_time_mean):
     if "OPR_DT" in df:
-        df['year'] = pd.DatetimeIndex(df['OPR_DT']).year
-        # get month from the corresponding
-        df['month'] = pd.DatetimeIndex(df['OPR_DT']).month
+        # Get month and year
+        df["date"] = pd.DatetimeIndex(df['OPR_DT'])
+        df['month_year'] = df['date'].dt.to_period('M')
+        df['weekday'] = pd.DatetimeIndex(df['OPR_DT'])
         df['weekday'] = pd.DatetimeIndex(df['OPR_DT']).dayofweek
         df['peak'] = pd.DatetimeIndex(df['OPR_DT']).hour
         # convert GMT to PST
@@ -74,69 +99,65 @@ def clean_data(df):
         df["peak"] = np.select(peak_time, ['Off Peak', 'Mid Peak', 'On Peak'])
         df["weekday"] = np.select(week_conditions, ["Weekend"], default="Weekday")
 
-        mean = df.groupby(["NODE_ID", "month", "year"]).mean(numeric_only=True)
-        median = df.groupby(["NODE_ID", "month", "year"]).median(numeric_only=True)
-        sd = df.groupby(["NODE_ID", "month", "year"]).std(numeric_only=True)
-        mean_holi = df.groupby(["NODE_ID", "month", "year", "weekday"]).mean(numeric_only=True)
-        mean_hour = df.groupby(["NODE_ID", "month", "year", "peak"]).mean(numeric_only=True)
+        # Get different type of statistics
+        mean = df.groupby(["NODE_ID", "month_year"]).mean(numeric_only=True)
+        median = df.groupby(["NODE_ID", "month_year"]).median(numeric_only=True)
+        sd = df.groupby(["NODE_ID", "month_year"]).std(numeric_only=True)
+        mean_holi = df.groupby(["NODE_ID", "month_year", "weekday"]).mean(numeric_only=True)
+        mean_hour = df.groupby(["NODE_ID", "month_year", "peak"]).mean(numeric_only=True)
+        df.to_csv("Temp.csv")
 
-        # index[0] Node_id Index[1] Month Index[2] Year
+        # bplot = df.boxplot(by="month_year", column=["MW"], grid=False, figsize=(25, 10))
+        # bplot.plot()
+        # bplot.set_xlabel("Year & Month")
+        # bplot.set_ylabel("$MW/hr")
+        # plt.suptitle("{} $MW/hr Boxplot".format(df["NODE_ID"].iloc[0]))
+        # plt.savefig("Boxplot/{}.png".format(df["NODE_ID"].iloc[0]))
+        # plt.close()
+
+        # index[0] Node_id Index[1] Period(YYYY-MM, 'M')
         for index, row in mean.iterrows():
-            col_name = "{}_{}_Mean".format(month[int(index[1]) - 1], int(index[2]))
-            # if column name does not exists, add it with null values
-            if col_name not in node_mean:
-                node_mean[col_name] = None
+            col_name = "{}_{}".format(months[int(index[1].month) - 1], int(index[1].year))
             node_mean.loc[index[0], col_name] = row.MW
 
         for index, row in median.iterrows():
-            col_name = "{}_{}_Median".format(month[int(index[1]) - 1], int(index[2]))
-            # if column name does not exists, add it with null values
-            if col_name not in node_med:
-                node_med[col_name] = None
+            col_name = "{}_{}".format(months[int(index[1].month) - 1], int(index[1].year))
             node_med.loc[index[0], col_name] = row.MW
 
         for index, row in sd.iterrows():
-            col_name = "{}_{}_sd".format(month[int(index[1]) - 1], int(index[2]))
-            # if column name does not exists, add it with null values
-            if col_name not in node_sd:
-                node_sd[col_name] = None
+            col_name = "{}_{}".format(months[int(index[1].month) - 1], int(index[1].year))
             node_sd.loc[index[0], col_name] = row.MW
 
-        # index[3] week type
+        # index[2] week type
         for index, row in mean_holi.iterrows():
-            col_name = "{}_{}_{}".format(month[int(index[1]) - 1], int(index[2]), index[3])
+            col_name = "{}_{}".format(months[int(index[1].month) - 1], int(index[1].year))
             # if column name does not exists, add it with null values
-            if index[3] == "Weekday":
-                if col_name not in node_weekday:
-                    node_weekday[col_name] = None
+            if index[2] == "Weekday":
                 node_weekday.loc[index[0], col_name] = row.MW
             else:
-                if col_name not in node_weekday:
-                    node_weekend[col_name] = None
                 node_weekend.loc[index[0], col_name] = row.MW
 
-        # index[3] peak
+        # index[2] peak
         for index, row in mean_hour.iterrows():
-            col_name = "{}_{}_{}".format(month[int(index[1]) - 1], int(index[2]), index[3])
+            col_name = "{}_{}".format(months[int(index[1].month) - 1], int(index[1].year))
             # if column name does not exists, add it with null values
-            if index[3] == "Mid Peak":
-                if col_name not in node_mid:
-                    node_mid[col_name] = None
+            if index[2] == "Mid Peak":
                 node_mid.loc[index[0], col_name] = row.MW
-            elif index[3] == "Off Peak":
-                if col_name not in node_off:
-                    node_off[col_name] = None
+            elif index[2] == "Off Peak":
                 node_off.loc[index[0], col_name] = row.MW
             else:
-                if col_name not in node_on:
-                    node_on[col_name] = None
                 node_on.loc[index[0], col_name] = row.MW
-    return df
+
+        node_time_mean = pd.concat([node_time_mean, df.groupby(["NODE_ID", "month_year"]).mean(numeric_only=True)])
+
+    return node_time_mean
 
 
 if __name__ == "__main__":
+    add_columns()
+    node_time_mean = pd.DataFrame()
     for sdir in subdir:
-        read_sub_dir("{}/{}".format(source, sdir))
+        node_time_mean = read_sub_dir("{}/{}".format(source, sdir), node_time_mean)
 
     node_mean.to_csv("Nodes_Mean.csv")
     node_med.to_csv("Nodes_Median.csv")
@@ -146,3 +167,4 @@ if __name__ == "__main__":
     node_mid.to_csv("Nodes Mid.csv")
     node_off.to_csv("Nodes Off.csv")
     node_on.to_csv("Nodes On.csv")
+    node_time_mean.to_csv("Nodes Time.csv")
